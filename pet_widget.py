@@ -1,4 +1,4 @@
-import os, glob, random
+import os, glob, random, ctypes
 from PyQt6.QtWidgets import QWidget, QLabel
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QPixmap, QPainter, QColor, QPainterPath
@@ -6,7 +6,7 @@ from todo_widget import TodoWidget
 import storage
 
 ASSET_DIR = os.path.join(os.path.dirname(__file__), "assets")
-PET_SIZE  = 150
+PET_SIZE  = 100
 SPEED     = 2
 TICK_MS   = 30
 ANIM_MS   = 200
@@ -24,37 +24,28 @@ NEXT_STATE = {
 
 
 class SpeechBubble(QWidget):
-    """
-    강아지 위에 항상 떠있는 말풍선.
-    할일이 있으면 최신 미완료 항목을 표시.
-    알림이 오면 알림 메시지를 4초간 표시 후 다시 할일로 복귀.
-    """
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowFlags(
             Qt.WindowType.FramelessWindowHint
             | Qt.WindowType.WindowStaysOnTopHint
-            | Qt.WindowType.Tool
         )
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-        # 마우스 이벤트 무시 (클릭이 강아지에게 전달되게)
         self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
 
-        self._todo_text    = None   # 현재 표시 중인 할일
-        self._notify_text  = None   # 알림 메시지 (있으면 우선 표시)
+        self._todo_text   = None
+        self._notify_text = None
 
-        # 알림 4초 후 할일로 복귀
         self._notify_timer = QTimer(self)
         self._notify_timer.setSingleShot(True)
         self._notify_timer.timeout.connect(self._clear_notify)
 
     def set_todo(self, text):
-        """할일 텍스트 업데이트."""
         self._todo_text = text
         self._redraw()
 
     def set_notify(self, msg):
-        """알림 메시지 4초간 표시."""
         self._notify_text = msg
         self._notify_timer.start(4000)
         self._redraw()
@@ -64,7 +55,6 @@ class SpeechBubble(QWidget):
         self._redraw()
 
     def _current_text(self):
-        """알림 > 할일 우선순위."""
         return self._notify_text or self._todo_text
 
     def _redraw(self):
@@ -79,9 +69,8 @@ class SpeechBubble(QWidget):
         if not self._current_text():
             self.hide()
             return
-        # adjustSize 대신 고정 크기 기준으로 계산
         x = dog_x + dog_w // 2 - self.width() // 2
-        y = dog_y - self.height()   # ← 여백 없이 딱 붙게
+        y = dog_y - self.height()
         self.move(x, y)
         self.show()
 
@@ -98,7 +87,6 @@ class SpeechBubble(QWidget):
         painter.setFont(font)
         fm = painter.fontMetrics()
 
-        # 텍스트가 길면 최대 200px로 제한
         text_w = min(fm.horizontalAdvance(text), 200)
         text_h = fm.height()
         pad_x, pad_y = 14, 10
@@ -108,29 +96,25 @@ class SpeechBubble(QWidget):
         h = text_h + pad_y * 2 + tail_h
         self.setFixedSize(w, h)
 
-        bubble_h = h - tail_h  # 꼬리 제외한 말풍선 높이
+        bubble_h = h - tail_h
         mid = w // 2
 
         bg     = QColor(255, 255, 255, 240)
         border = QColor(210, 210, 210)
 
-        # 1) 꼬리 삼각형 먼저 (말풍선 뒤에 가려지지 않게 순서 중요)
         tail_path = QPainterPath()
-        tail_path.moveTo(mid - 9, bubble_h + 1)  # +1: 테두리와 겹치게
+        tail_path.moveTo(mid - 9, bubble_h + 1)
         tail_path.lineTo(mid,     h)
         tail_path.lineTo(mid + 9, bubble_h + 1)
         tail_path.closeSubpath()
-
         painter.setPen(border)
         painter.setBrush(bg)
         painter.drawPath(tail_path)
 
-        # 2) 말풍선 본체 (꼬리 위에 덮어서 이음새 자연스럽게)
         painter.setPen(border)
         painter.setBrush(bg)
         painter.drawRoundedRect(0, 0, w, bubble_h, 12, 12)
 
-        # 3) 텍스트
         painter.setPen(QColor(50, 50, 50))
         painter.drawText(pad_x, pad_y + text_h - 4, text)
 
@@ -158,30 +142,62 @@ class PetWidget(QWidget):
         self.todo   = TodoWidget()
         self.bubble = SpeechBubble()
 
-        # 할일 변경 시 → 말풍선 업데이트
         self.todo.todos_changed.connect(self._update_bubble)
-
-        # 앱 시작 시 기존 할일 있으면 바로 표시
         self._update_bubble()
-
-    def _update_bubble(self):
-        text = self.todo.get_top_todo()
-        self.bubble.set_todo(text)
-        # 강아지 위치 기준으로 바로 붙이기
-        self.bubble.update_pos(self.x(), self.y(), self.width())
-
-    def show_notification(self, msg: str):
-        """스케줄러 알림 → 말풍선에 표시."""
-        self.bubble.set_notify(msg)
-        self.bubble.update_pos(self.x(), self.y(), self.width())
 
     def _setup_window(self):
         self.setWindowFlags(
             Qt.WindowType.FramelessWindowHint
             | Qt.WindowType.WindowStaysOnTopHint
-            | Qt.WindowType.Tool
+            # ← Tool 제거! 이게 비활성화 시 숨기는 원인이었음
         )
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        self._set_always_on_top()
+
+    def _set_always_on_top(self):
+        try:
+            from AppKit import (
+                NSStatusWindowLevel,
+                NSWindowCollectionBehaviorCanJoinAllSpaces
+            )
+            import objc
+            wid = self.winId().__int__()
+            ns_view = objc.objc_object(c_void_p=wid)
+            ns_window = ns_view.window()
+            if ns_window:
+                ns_window.setLevel_(NSStatusWindowLevel)
+                ns_window.setCollectionBehavior_(
+                    NSWindowCollectionBehaviorCanJoinAllSpaces
+                )
+        except Exception as e:
+            print(f"최상단 설정 실패: {e}")
+
+    def _force_on_top(self):
+        try:
+            from AppKit import NSStatusWindowLevel
+            import objc
+            wid = self.winId().__int__()
+            ns_view = objc.objc_object(c_void_p=wid)
+            ns_window = ns_view.window()
+            if ns_window:
+                ns_window.setLevel_(NSStatusWindowLevel)
+                ns_window.orderFrontRegardless()
+        except Exception as e:
+            print(f"실패: {e}")
+            self.raise_()
+
+    def _update_bubble(self):
+        text = self.todo.get_top_todo()
+        self.bubble.set_todo(text)
+        self.bubble.update_pos(self.x(), self.y(), self.width())
+
+    def show_notification(self, msg: str):
+        self.bubble.set_notify(msg)
+        self.bubble.update_pos(self.x(), self.y(), self.width())
 
     def _load_assets(self):
         def load_frames(folder):
@@ -272,10 +288,13 @@ class PetWidget(QWidget):
         self.anim_timer.timeout.connect(self._on_anim_tick)
         self.anim_timer.start(ANIM_MS)
 
-        # ← 추가: 상태 관계없이 항상 말풍선 위치 동기화
         self.bubble_timer = QTimer(self)
         self.bubble_timer.timeout.connect(self._sync_bubble_pos)
-        self.bubble_timer.start(50)  # 50ms마다
+        self.bubble_timer.start(50)
+
+        self.top_timer = QTimer(self)
+        self.top_timer.timeout.connect(self._force_on_top)
+        self.top_timer.start(2000)
 
         self._schedule_next_state()
 
@@ -313,11 +332,6 @@ class PetWidget(QWidget):
             self._update_image()
 
         self.move(next_x, self.y())
-
-        # 말풍선들 따라오게
-        if self.todo.isVisible():
-            self.todo.update_position(self.x(), self.y(), self.width(), self.height())
-        self.bubble.update_pos(self.x(), self.y(), self.width())  
 
     def _on_anim_tick(self):
         if self.state != "walk":

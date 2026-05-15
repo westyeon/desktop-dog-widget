@@ -1,20 +1,26 @@
 import sys
 from PyQt6.QtWidgets import QApplication
+from PyQt6.QtCore import Qt
 from pet_widget import PetWidget
 from tray_app import TrayApp
+from scheduler import Scheduler
 
 
 def main():
     app = QApplication(sys.argv)
     app.setQuitOnLastWindowClosed(False)
 
-    pet  = PetWidget()
-    tray = TrayApp()
+    pet   = PetWidget()
+    tray  = TrayApp()
+    sched = Scheduler()
 
-    # 신호 연결: tray에서 모드 바뀌면 → pet의 set_moving 호출
-    # 이게 Qt의 Signal-Slot 패턴이야
-    # "tray가 신호를 쏘면, pet이 받아서 처리"
     tray.movement_changed.connect(pet.set_moving)
+    sched.notify.connect(pet.show_notification)
+
+    # ← 핵심: 앱이 비활성화돼도 강아지 계속 표시
+    app.applicationStateChanged.connect(
+        lambda state: pet.show() if pet.isVisible() or True else None
+    )
 
     pet.show()
     sys.exit(app.exec())
