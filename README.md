@@ -3,7 +3,7 @@
 화면 위를 자유롭게 이동하는 데스크탑 펫 애플리케이션
 
 ## 미리보기
-<img src="example_photo/example.png" width="400"/>
+<img src="example_photo/example.png" width="200"/>
 
 ## 소개
 직접 그린 강아지 캐릭터가 바탕화면을 돌아다니며 할일을 알려주는 데스크탑 위젯입니다.
