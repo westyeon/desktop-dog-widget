@@ -1,0 +1,31 @@
+name: Build
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Python 설치
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: 패키지 설치
+        run: pip install -r requirements.txt pyinstaller
+
+      - name: 빌드
+        run: pyinstaller --onefile --windowed --name "DesktopDog" --add-data "assets;assets" main.py
+
+      - name: 압축
+        run: Compress-Archive -Path dist/DesktopDog.exe -DestinationPath dist/DesktopDog-windows.zip
+
+      - name: 릴리즈에 업로드
+        uses: softprops/action-gh-release@v1
+        with:
+          files: dist/DesktopDog-windows.zip
