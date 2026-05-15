@@ -20,6 +20,11 @@
 ### 요구사항
 - Python 3.11 이상
 
+## 실행 방법
+
+### 요구사항
+- Python 3.11 이상
+
 ### 설치 및 실행
 ```bash
 git clone https://github.com/westyeon/desktop-dog-widget.git
@@ -29,6 +34,18 @@ source venv/bin/activate  # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 python3 main.py
 ```
+
+### 또는 바로 다운로드해서 실행
+
+**Mac**
+1. [Releases](https://github.com/westyeon/desktop-dog-widget/releases) 에서 `DesktopDog-mac.zip` 다운로드
+2. 압축 해제 후 `DesktopDog.app` 실행
+3. "확인되지 않은 개발자" 경고 뜨면 → 시스템 설정 → 개인정보 보호 및 보안 → 그래도 열기 클릭
+
+**Windows**
+1. [Releases](https://github.com/westyeon/desktop-dog-widget/releases) 에서 `DesktopDog-windows.zip` 다운로드
+2. 압축 해제 후 `DesktopDog.exe` 실행
+3. "Windows의 PC 보호" 경고 뜨면 → 추가 정보 → 그래도 실행 클릭
 
 ## 기술 스택
 | 항목 | 내용 |
